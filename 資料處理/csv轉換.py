@@ -43,6 +43,7 @@ def process_file(file_path):
 
 def drop(event):
     file_path = event.data
+    # 去除拖曳之後, 操作系統自動新增的括號
     if file_path.startswith('{') and file_path.endswith('}'):
         file_path = file_path[1:-1]
     process_file(file_path)
