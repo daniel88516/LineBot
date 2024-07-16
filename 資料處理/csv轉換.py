@@ -16,8 +16,8 @@ column_mapping = {
 def process_file(file_path):
     # 讀取輸入的檔案
     df = pd.read_csv(file_path)
-    # 標題都轉換成小寫
-    df = df.rename(columns=str.lower)
+    # 標題都轉換成小寫, 去掉空格
+    df = df.rename(columns=lambda x: x.lower().strip())
     # 紀錄篩選過後的資料
     filtered_df = pd.DataFrame()
 
