@@ -7,7 +7,7 @@ gunicorn 的使用方法是在 cmd 上下指令, 只不過因為操作系統的�
 ### 本地使用 Docker 運行
 
 `Dockerfile` 定義了容器被啟動後會做的事情, 建立環境, 複製需要的檔案, 使用 gunicorn 啟動 app\
-`requirements.txt` 記錄了所有會用到 python 套件,\
+`requirements.txt` 記錄了所有會用到 python 套件\
 `.dockerignore` 記錄了所有不需要包含在 dockerimage 當中的內容
 
 ### 在 fly 上面運行
@@ -19,6 +19,7 @@ gunicorn 的使用方法是在 cmd 上下指令, 只不過因為操作系統的�
 
 #### fly
 
+```
 fly launch\
 fly deploy\
 fly machine restart <machine-id>\
@@ -26,10 +27,13 @@ fly secrets import < .env\
 fly logs -a linebot-gunicorn\
 flyctl apps list\
 flyctl destroy <appName>\
+```
 
 #### Docker
 
+```
 docker build -t linebot .
 docker run --env-file .env -p 8080:8080 linebot
 pip
 pip show <package_name>
+```
