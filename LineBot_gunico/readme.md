@@ -20,13 +20,13 @@ gunicorn 的使用方法是在 cmd 上下指令, 只不過因為操作系統的�
 #### fly
 
 ```
-fly launch\
-fly deploy\
-fly machine restart <machine-id>\
-fly secrets import < .env\
-fly logs -a linebot-gunicorn\
-flyctl apps list\
-flyctl destroy <appName>\
+fly launch
+fly deploy
+fly machine restart <machine-id>
+fly secrets import < .env
+fly logs -a linebot-gunicorn
+flyctl apps list
+flyctl destroy <appName>
 ```
 
 #### Docker
