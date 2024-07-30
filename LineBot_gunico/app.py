@@ -1,11 +1,13 @@
 from flask import Flask, request, abort
 import os
 from dotenv import load_dotenv
+import gunicorn.app
 import joblib
 import pandas as pd
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage, TemplateSendMessage, ButtonsTemplate, PostbackAction, PostbackEvent
+import gunicorn
 
 # 载入 .env 文件
 load_dotenv()
