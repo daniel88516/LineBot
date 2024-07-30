@@ -1,13 +1,11 @@
 from flask import Flask, request, abort
 import os
 from dotenv import load_dotenv
-import gunicorn.app
 import joblib
 import pandas as pd
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage, TemplateSendMessage, ButtonsTemplate, PostbackAction, PostbackEvent
-import gunicorn
+from linebot.models import MessageEvent, TextMessage, TextSendMessage, TemplateSendMessage, ButtonsTemplate, PostbackAction, PostbackEvent, UnsendEvent, Event
 
 # 载入 .env 文件
 load_dotenv()
@@ -17,6 +15,7 @@ app = Flask(__name__)
 # Line API 驗證
 access_token = os.getenv('LINE_ACCESS_TOKEN')
 secret = os.getenv('LINE_SECRET')
+predict_api_url = os.getenv('PREDICT_API_URL')
 line_bot_api = LineBotApi(access_token)  # token 確認
 handler = WebhookHandler(secret)      # secret 確認
 
@@ -165,7 +164,7 @@ def validate_numeric_input(event, msg):
     return True
 # 用戶傳送訊息的時候做出的回覆
 @handler.add(MessageEvent, message=TextMessage)
-def handle_text_message(event):
+def handle_text_message(event: Event):
     user_id = event.source.user_id
     msg = event.message.text
     if msg == 'exit':
@@ -187,7 +186,7 @@ def handle_text_message(event):
     NextQuestion(event.reply_token, user_id)
 # 按鈕按下之後的回應
 @handler.add(PostbackEvent)
-def handle_postback(event):
+def handle_postback(event: PostbackEvent):
     # 獲取使用者與回傳的按鈕資訊
     user_id = event.source.user_id
     postback_data = event.postback.data
