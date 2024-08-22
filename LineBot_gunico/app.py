@@ -15,8 +15,8 @@ load_dotenv()
 app = Flask(__name__)
 
 # Line API 驗證
-access_token = os.getenv('LINE_ACCESS_TOKEN')
-secret = os.getenv('LINE_SECRET')
+access_token = 'hr57G9x2N1RzDTLfuTmZcmEGbp4NOE+RhKy9bpYVAmJh8kkdmOxjjI2XyyJ1pL2G7fuT0dFbzu7tN/9CXcZtJM6r9n7XLE5ftm04RyX1mNoQ36SLxG+aZo6cGOQe0RUNcsPDNT2Jr+/0THQ4SboBuwdB04t89/1O/w1cDnyilFU='
+secret = '55bd2bf40d93d598909c39d480562ddd'
 line_bot_api = LineBotApi(access_token)  # token 確認
 handler = WebhookHandler(secret)      # secret 確認
 
@@ -36,8 +36,7 @@ def webhook():
         abort(400)
     return 'OK'
 
-# 載入模型
-model = joblib.load('./diabete_prediction_model.pkl')
+
 # 定義 Question 類別, 方便問問題
 class Question:
     def __init__(self, question_text):
@@ -89,7 +88,7 @@ introduction = ("您好，我是健康智能管家。\n"
                 "請問是否進行疾病預測呢?")
 introQuestions = [
     ButtonQuestion('是否進行疾病預測?', [('是', 'continue'), ('否', 'exit')], introduction),
-    ButtonQuestion('請選擇預測項目', [('糖尿病', 'diabete'), ('高血壓', 'hypertension'), ('心臟病', 'heart_disease')])
+    ButtonQuestion('請選擇預測項目', [('糖尿病', 'diabete'), ('中風', 'hypertension'), ('心臟病', 'heart_disease')])
 ]
 diabeteQuestions = [
     ButtonQuestion('性別', [('男', '0'), ('女', '1')]),
@@ -99,15 +98,31 @@ diabeteQuestions = [
     TextQuestion("請輸入血糖水平: ")
 ]
 hypertensionQuestions = [
-    ButtonQuestion('測試問題1 (高血壓)', [('測試答案1', '0'), ('測試答案2', '1'), ('測試答案3', '2')]),
-    TextQuestion("測試問題2 (高血壓)"),
-    TextQuestion("測試問題3 (高血壓)"),
+    ButtonQuestion('性別', [('男', '0'), ('女', '1')]),
+    TextQuestion("請輸入年齡: "),
+    ButtonQuestion('是否有高血壓', [('是', '1'), ('否', '0')]),
+    ButtonQuestion('是否有心臟病', [('是', '1'), ('否', '0')]),
+    ButtonQuestion('居住環境', [('鄉村', '1'), ('都市', '0')]),
+    TextQuestion("請輸入血糖"),
+    TextQuestion("請輸入BMI"),
+    ButtonQuestion('抽菸史:', [('無', '0'), ('曾有', '1'), ('有', '2')] )
 ]
 heartDiseaseQuestions = [
-    ButtonQuestion('測試問題1 (心臟病)', [('測試答案1', '0'), ('測試答案2', '1'), ('測試答案3', '2')]),
-    TextQuestion("測試問題2 (心臟病)"),
-    TextQuestion("測試問題3 (心臟病)"),
+    ButtonQuestion('性別', [('男', '0'), ('女', '1')]),
+    TextQuestion("請輸入年齡: "),
+    TextQuestion("請輸入BMI: "),
+    ButtonQuestion('是否有抽菸', [('是', '1'), ('否', '0')]),
+    ButtonQuestion('是否有飲酒(一個禮拜喝超過14杯)', [('是', '1'), ('否', '0')]),
+    ButtonQuestion('是否有中風', [('是', '1'), ('否', '0')]),
+    ButtonQuestion('爬樓梯是否有困難', [('是', '1'), ('否', '0')]),
+    ButtonQuestion('是否有糖尿病', [('是', '1'), ('否', '0')]),
+    ButtonQuestion('平常是否有進行工作外的身體活動', [('是', '1'), ('否', '0')]),
+    TextQuestion("一天平均睡多少小時: "),
+    ButtonQuestion('是否有氣喘', [('是', '1'), ('否', '0')]),
+    ButtonQuestion('是否有腎臟疾病', [('是', '1'), ('否', '0')]),
+    ButtonQuestion('是否有皮膚癌', [('是', '1'), ('否', '0')])
 ]
+
 # 初始化新的使用者
 def initializeNewUser(reply_token, user_id):
     # 初始化
@@ -122,8 +137,14 @@ def process_final_input(reply_token, user_id):
     user_data = user_state[user_id].data
     
     if user_testType == 'diabete':
+        # 載入模型
+        model = joblib.load('./diabete_prediction_model.pkl')
         # 將使用者輸入轉換成 pandas, 並加入標籤
-        user_input = pd.DataFrame([user_data], columns=['gender', 'age', 'bmi', 'HbA1c_level', 'blood_glucose_level'])
+        user_input = pd.DataFrame([user_data], columns=['gender', 
+                                                        'age', 
+                                                        'bmi', 
+                                                        'HbA1c_level', 
+                                                        'blood_glucose_level'])
         # 使用模型預測結果
         prediction = model.predict(user_input)
         # 二分判斷
@@ -135,9 +156,62 @@ def process_final_input(reply_token, user_id):
             TextSendMessage(text="謝謝光臨!! 有需要都可以在叫我喔")
         ])
     elif user_testType == 'hypertension':
-        line_bot_api.reply_message(reply_token, TextSendMessage(text="高血壓測試結束"))
+        # 載入模型
+        model = joblib.load('./stroke_prediction_model.pkl')
+        # 將使用者輸入轉換成 pandas, 並加入標籤
+        user_input = pd.DataFrame([user_data], columns=['gender', 
+                                                        'age', 
+                                                        'hypertension', 
+                                                        'heart_disease', 
+                                                        'Residence_type',
+                                                        'avg_glucose_level',
+                                                        'bmi',
+                                                        'smoking_status'])
+        # 使用模型預測結果
+        prediction = model.predict(user_input)
+        # 二分判斷
+        result = "没有中風" if prediction[0] == 0 else "有中風"
+        prediction = model.predict_proba(user_input)[0]
+        line_bot_api.reply_message(reply_token, [
+            TextSendMessage(text=f"{result}"),
+            TextSendMessage(text=f"中風機率:{prediction[1]*100:.2f}%"),
+            TextSendMessage(text="謝謝光臨!! 有需要都可以在叫我喔")
+        ])
     elif user_testType == 'heart_disease':
-        line_bot_api.reply_message(reply_token, TextSendMessage(text="心臟病測試結束"))
+        # 載入模型
+        model = joblib.load('./HeartDisease_prediction_model.pkl')
+        
+        # 將使用者輸入轉換成 pandas, 並加入標籤
+        if user_data['AgeCategory'] == 18 or user_data['AgeCategory'] == 19:
+            user_data['AgeCategory'] = user_data['AgeCategory'] / 5 + 1
+        elif user_data['AgeCategory'] >=80:
+            user_data['AgeCategory'] = 16
+        else:
+            user_data['AgeCategory'] = user_data['AgeCategory'] / 5
+        
+        user_input = pd.DataFrame([user_data], columns=['Sex',
+                                                        'AgeCategory',
+                                                        'BMI', 
+                                                        'Smoking', 
+                                                        'AlcoholDrinking', 
+                                                        'Stroke', 
+                                                        'DiffWalking',
+                                                        'Diabetic',
+                                                        'PhysicalActivity',
+                                                        'SleepTime',
+                                                        'Asthma',
+                                                        'KidneyDisease',
+                                                        'SkinCancer'])
+        # 使用模型預測結果
+        prediction = model.predict(user_input)
+        # 二分判斷
+        result = "没有中風" if prediction[0] == 0 else "有中風"
+        prediction = model.predict_proba(user_input)[0]
+        line_bot_api.reply_message(reply_token, [
+            TextSendMessage(text=f"{result}"),
+            TextSendMessage(text=f"中風機率:{prediction[1]*100:.2f}%"),
+            TextSendMessage(text="謝謝光臨!! 有需要都可以在叫我喔")
+        ])
     del user_state[user_id]
     
 def EndPrediction(reply_token, user_id):
