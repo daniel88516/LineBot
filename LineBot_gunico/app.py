@@ -8,6 +8,8 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage, TemplateSendMessage, ButtonsTemplate, PostbackAction, PostbackEvent
 import gunicorn
+import xgboost as xgb
+import requests
 
 # 载入 .env 文件
 load_dotenv()
@@ -139,26 +141,42 @@ def process_final_input(reply_token, user_id):
     if user_testType == 'diabete':
         # 載入模型
         model = joblib.load('./diabete_prediction_model.pkl')
-        # 將使用者輸入轉換成 pandas, 並加入標籤
+        
+        # 邏輯回歸預測
         user_input = pd.DataFrame([user_data], columns=['gender', 
                                                         'age', 
                                                         'bmi', 
                                                         'HbA1c_level', 
                                                         'blood_glucose_level'])
-        # 使用模型預測結果
-        prediction = model.predict(user_input)
+        prediction_proba = model.predict_proba(user_input)[0]
+
+        """
+        # 傳至NAS並回傳預測結果
+        api_url = 'http://120.107.172.113:8000/predict/diabetes'
+        try:
+            response = requests.post(api_url, json=user_input)
+            response.raise_for_status()
+            prediction_proba = response.json().get('prediction_proba', [0, 0])
+        except requests.exceptions.RequestException as e:
+            prediction_proba = [0, 0]  # 預設為[0, 0]，表示出錯
+        """
+
         # 二分判斷
-        result = "没有糖尿病" if prediction[0] == 0 else "有糖尿病"
-        prediction = model.predict_proba(user_input)[0]
+        result = "没有糖尿病" if prediction_proba[1] < 0.5 else "有糖尿病"
         line_bot_api.reply_message(reply_token, [
             TextSendMessage(text=f"{result}"),
-            TextSendMessage(text=f"糖尿病機率:{prediction[1]*100:.2f}%"),
+            TextSendMessage(text=f"糖尿病機率:{prediction_proba[1]*100:.2f}%"),
             TextSendMessage(text="謝謝光臨!! 有需要都可以在叫我喔")
         ])
+
+
     elif user_testType == 'hypertension':
         # 載入模型
         model = joblib.load('./stroke_prediction_model.pkl')
-        # 將使用者輸入轉換成 pandas, 並加入標籤
+
+        
+        #XGboost 預測
+         #轉換成 DataFrame, 並加入標籤
         user_input = pd.DataFrame([user_data], columns=['gender', 
                                                         'age', 
                                                         'hypertension', 
@@ -167,28 +185,49 @@ def process_final_input(reply_token, user_id):
                                                         'avg_glucose_level',
                                                         'bmi',
                                                         'smoking_status'])
-        # 使用模型預測結果
-        prediction = model.predict(user_input)
+         # 全部轉換成 float 型態，以符合 xgboost 的輸入格式(不接受按鈕所產生的object值)
+        user_input['gender'] = user_input['gender'].astype(float)
+        user_input['hypertension'] = user_input['hypertension'].astype(float)
+        user_input['heart_disease'] = user_input['heart_disease'].astype(float)
+        user_input['Residence_type'] = user_input['Residence_type'].astype(float)
+        user_input['smoking_status'] = user_input['smoking_status'].astype(float) 
+         # 再轉換為 DMatrix 格式
+        user_input = xgb.DMatrix(user_input)
+        prediction_proba = model.predict(user_input)
+        
+        """
+        # 傳至NAS並回傳預測結果
+        api_url = 'http://120.107.172.113:8000/predict/hypertension'
+        try:
+            response = requests.post(api_url, json=user_input)#將字典型態的資料傳遞至NAS(因為json不接受DMatrix型態)
+            response.raise_for_status()#在NAS部分先轉成DMatrix再丟入模型
+            prediction_proba = response.json().get('prediction_proba', [0, 0])#最後回傳結果
+        except requests.exceptions.RequestException as e:
+            prediction_proba = [0, 0]  # 預設為[0, 0]，表示出錯錯
+        """
         # 二分判斷
-        result = "没有中風" if prediction[0] == 0 else "有中風"
-        prediction = model.predict_proba(user_input)[0]
+        result = "沒有中風" if prediction_proba[0] < 0.5 else "有中風" #prediction_proba[0] 是類別1的機率
         line_bot_api.reply_message(reply_token, [
             TextSendMessage(text=f"{result}"),
-            TextSendMessage(text=f"中風機率:{prediction[1]*100:.2f}%"),
+            TextSendMessage(text=f"中風機率:{prediction_proba[0] * 100:.2f}%"),
             TextSendMessage(text="謝謝光臨!! 有需要都可以在叫我喔")
         ])
+
+
     elif user_testType == 'heart_disease':
         # 載入模型
         model = joblib.load('./HeartDisease_prediction_model.pkl')
         
-        # 將使用者輸入轉換成 pandas, 並加入標籤
-        if user_data['AgeCategory'] == 18 or user_data['AgeCategory'] == 19:
-            user_data['AgeCategory'] = user_data['AgeCategory'] / 5 + 1
-        elif user_data['AgeCategory'] >=80:
-            user_data['AgeCategory'] = 16
+        #年齡分布計算(AgeCategory位在user_data的第二個位置，所以index為1)
+        if user_data[1] == 18 or user_data[1] == 19:
+            user_data[1] = user_data[1] / 5 + 1
+        elif user_data[1] >=80:
+            user_data[1] = 16
         else:
-            user_data['AgeCategory'] = user_data['AgeCategory'] / 5
+            user_data[1] = user_data[1] / 5
         
+        
+        # 邏輯回歸預測
         user_input = pd.DataFrame([user_data], columns=['Sex',
                                                         'AgeCategory',
                                                         'BMI', 
@@ -201,18 +240,29 @@ def process_final_input(reply_token, user_id):
                                                         'SleepTime',
                                                         'Asthma',
                                                         'KidneyDisease',
-                                                        'SkinCancer'])
-        # 使用模型預測結果
-        prediction = model.predict(user_input)
+                                                        'SkinCancer'])#轉成DataFrame格式
+        prediction_proba = model.predict_proba(user_input)[0]#將轉成DataFrame格式的資料輸入進模型
+        """
+        # 傳至NAS並回傳預測結果
+        api_url = 'http://120.107.172.113:8000/predict/heart_disease'
+        try:
+            response = requests.post(api_url, json=user_input)#將字典型態的資料傳遞至NAS(因為json不接受Dataframe型態)
+            response.raise_for_status()#在NAS部分先轉成Dataframe再丟入模型
+            prediction_proba = response.json().get('prediction_proba', [0, 0])#最後回傳結果
+        except requests.exceptions.RequestException as e:
+            prediction_proba = [0, 0]  # 預設為[0, 0]，表示出錯
+        """
         # 二分判斷
-        result = "没有中風" if prediction[0] == 0 else "有中風"
-        prediction = model.predict_proba(user_input)[0]
+        result = "没有心臟病" if prediction_proba[1] < 0.5 else "有心臟病"
         line_bot_api.reply_message(reply_token, [
             TextSendMessage(text=f"{result}"),
-            TextSendMessage(text=f"中風機率:{prediction[1]*100:.2f}%"),
+            TextSendMessage(text=f"心臟病機率:{prediction_proba[1]*100:.2f}%"),
             TextSendMessage(text="謝謝光臨!! 有需要都可以在叫我喔")
         ])
     del user_state[user_id]
+    
+
+
     
 def EndPrediction(reply_token, user_id):
     line_bot_api.reply_message(reply_token, TextSendMessage(text="謝謝光臨!! 有需要都可以在叫我喔"))
